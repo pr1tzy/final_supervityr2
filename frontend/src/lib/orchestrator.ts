@@ -75,6 +75,46 @@ export async function fetchOrchestratorHealth() {
   return res.json()
 }
 
+export type MonitorCheckOptions = {
+  leadId: string
+  clientEmail?: string
+  clientName?: string
+  silenceThresholdDays?: number
+  signedPdfUrl?: string
+  docType?: string
+  expectedName?: string
+  expectedAmountUsd?: number
+}
+
+/** Agent E — inbox reply scan, silence alert, optional PDF OCR. */
+export async function triggerMonitorCheck(opts: MonitorCheckOptions) {
+  const res = await fetch(`${API_URL}/api/orchestrator/check`, {
+    method: 'POST',
+    headers: orchestratorHeaders(),
+    body: JSON.stringify({
+      action: 'check',
+      lead_id: opts.leadId,
+      client_email: opts.clientEmail,
+      client_name: opts.clientName,
+      silence_threshold_days: opts.silenceThresholdDays ?? 4,
+      signed_pdf_url: opts.signedPdfUrl ?? '',
+      doc_type: opts.docType ?? 'signed_contract',
+      expected_name: opts.expectedName,
+      expected_amount_usd: opts.expectedAmountUsd ?? 0,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail) || 'Monitor check failed')
+  }
+  return res.json() as Promise<{
+    success: boolean
+    message?: string
+    result?: Record<string, unknown>
+    notifications?: Array<Record<string, unknown>>
+  }>
+}
+
 export async function triggerPhaseLegal(
   leadId: string,
   transcript: { project_description: string; scoped_budget?: string; scoped_timeline?: string }

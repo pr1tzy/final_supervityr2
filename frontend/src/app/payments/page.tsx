@@ -12,6 +12,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Icons } from '@/components/ui/icons'
 import { PaymentWorkflow } from '@/hooks/usePaymentsData'
+import { PipelineActionsCard } from '@/components/orchestrator/PipelineActionsCard'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -58,6 +59,26 @@ export default function PaymentsPage() {
             AI-powered payment orchestration, invoice management, and revenue operations
           </p>
         </div>
+      </motion.div>
+
+      <motion.div variants={itemVariants}>
+        {selectedPayment ? (
+          <PipelineActionsCard
+            leadId={selectedPayment.lead_id}
+            contactEmail={selectedLead?.contact_email}
+            contactName={selectedPayment.contact_name}
+            companyName={selectedPayment.company_name}
+            estimatedDealSize={selectedPayment.amount_due}
+          />
+        ) : (
+          <PipelineActionsCard
+            leadId='11111111-1111-4111-8111-111111111104'
+            contactEmail='tristanhancock@gmail.com'
+            contactName='Tristan Hancock'
+            companyName='Ovelia Health'
+            estimatedDealSize={500000}
+          />
+        )}
       </motion.div>
 
       {/* Metrics Row */}

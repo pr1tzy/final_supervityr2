@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Icons } from '@/components/ui/icons'
 import { Skeleton } from '@/components/ui/skeleton'
+import { PipelineActionsCard } from '@/components/orchestrator/PipelineActionsCard'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -103,6 +104,26 @@ export default function LegalHubPage() {
             AI-powered contract processing, OCR extraction, and validation
           </p>
         </div>
+      </motion.div>
+
+      <motion.div variants={itemVariants}>
+        {selectedContract ? (
+          <PipelineActionsCard
+            leadId={selectedContract.lead_id}
+            contactEmail={selectedLead?.contact_email}
+            contactName={selectedContract.contact_name}
+            companyName={selectedContract.company_name}
+            estimatedDealSize={selectedContract.deal_size}
+          />
+        ) : (
+          <PipelineActionsCard
+            leadId='11111111-1111-4111-8111-111111111104'
+            contactEmail='tristanhancock@gmail.com'
+            contactName='Tristan Hancock'
+            companyName='Ovelia Health'
+            estimatedDealSize={500000}
+          />
+        )}
       </motion.div>
 
       {/* Metrics Row */}

@@ -16,6 +16,7 @@ import { ActivityTimeline } from './ActivityTimeline'
 import { parseNotes } from '@/lib/notesParser'
 import { formatDistanceToNow } from 'date-fns'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PipelineActionsCard } from '@/components/orchestrator/PipelineActionsCard'
 
 interface LeadDetailDrawerProps {
   lead: Lead | null
@@ -85,6 +86,15 @@ export function LeadDetailDrawer({
             </Badge>
           </div>
         </SheetHeader>
+
+        <PipelineActionsCard
+          leadId={lead.id}
+          contactEmail={lead.contact_email}
+          contactName={lead.contact_name}
+          companyName={lead.company_name}
+          estimatedDealSize={lead.estimated_deal_size}
+          compact
+        />
 
         {/* Lead Summary Card */}
         <Card className='mb-6'>
