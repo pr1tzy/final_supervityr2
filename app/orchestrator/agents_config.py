@@ -47,9 +47,18 @@ def build_email_inputs(
     subject: str = "",
     body_html: str = "",
 ) -> dict[str, str]:
-    """Flat inputs matching Auto Agent B (operation, to_address, …)."""
-    out: dict[str, str] = {
+    """
+    Email Send on Auto expects subject + body_html (does not draft).
+    Also sends input_json for Jim-style workflows.
+    """
+    to_address = str(snap.get("email") or snap.get("contact_email") or "")
+    payload = {
+        "task": "send_email",
         "operation": operation,
+        "to": to_address,
+        "to_address": to_address,
+        "subject": subject,
+        "body_html": body_html,
         "lead_id": lead_id,
         "full_name": _name(snap),
         "company_name": str(snap.get("company_name") or "Individual"),
@@ -57,11 +66,19 @@ def build_email_inputs(
         "preliminary_budget": str(
             snap.get("preliminary_budget") or snap.get("budget") or ""
         ),
-        "to_address": str(snap.get("email") or snap.get("contact_email") or ""),
+    }
+    return {
+        "input_json": json.dumps(payload, default=str),
+        "operation": operation,
+        "lead_id": lead_id,
+        "full_name": _name(snap),
+        "company_name": str(snap.get("company_name") or "Individual"),
+        "project_type": str(snap.get("project_type") or "website"),
+        "preliminary_budget": payload["preliminary_budget"],
+        "to_address": to_address,
         "subject": subject,
         "body_html": body_html,
     }
-    return out
 
 
 def build_legal_inputs(
@@ -70,13 +87,17 @@ def build_legal_inputs(
     snap: dict[str, Any],
     lead_id: str,
     contract_markdown: str = "",
+    contract_pdf_url: str = "",
+    email_body_html: str = "",
+    attach_as_pdf: bool = True,
 ) -> dict[str, str]:
+    client = _name(snap)
     return {
         "task": task,
         "lead_id": lead_id,
         "human_override": "false",
-        "client_email": str(snap.get("email") or ""),
-        "client_name": _name(snap),
+        "client_email": str(snap.get("email") or snap.get("contact_email") or ""),
+        "client_name": client,
         "company_name": str(snap.get("company_name") or "Individual"),
         "project_type": str(snap.get("project_type") or "website"),
         "project_description": str(snap.get("project_description") or "Website project"),
@@ -84,7 +105,12 @@ def build_legal_inputs(
         "scoped_timeline": str(snap.get("scoped_timeline") or "October 2026"),
         "pipeline_stage": str(snap.get("pipeline_stage") or "scoped"),
         "custom_clauses": "",
-        "signed_pdf_url": "",
+        "signed_pdf_url": contract_pdf_url,
+        "contract_pdf_url": contract_pdf_url,
+        "attach_as_pdf": "true" if (attach_as_pdf and contract_pdf_url) else "false",
+        "attach_pdf": "true" if (attach_as_pdf and contract_pdf_url) else "false",
+        "attachment_filename": f"AceLink-Service-Agreement-{lead_id[:8]}.pdf",
+        "email_body_html": email_body_html[:20000] if email_body_html else "",
         "contract_markdown": contract_markdown[:50000] if contract_markdown else "",
     }
 

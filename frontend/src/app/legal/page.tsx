@@ -231,9 +231,10 @@ export default function LegalHubPage() {
               <div className='text-sm text-blue-800'>
                 <p className='font-semibold mb-1'>Legal Hub Workflow:</p>
                 <p>
-                  1. Select a contract from the queue. 2. Upload a signed PDF to trigger OCR extraction.
-                  3. System validates extracted data against CRM. 4. Mismatches trigger human review.
-                  5. Validated contracts move to approval stage.
+                  1. Run <strong>Phase 2 · Legal</strong> (John generates a PDF + emails it for e-sign).
+                  2. Client replies with signed PDF attached.
+                  3. <strong>Agent E · Check replies</strong> or paste the signed PDF URL into OCR.
+                  4. <strong>Phase 3 · Payment</strong>. Upload tab below is browser-only simulation.
                 </p>
               </div>
             </div>

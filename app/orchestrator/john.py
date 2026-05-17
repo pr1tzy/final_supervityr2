@@ -20,6 +20,7 @@ from .schemas import (
     SubflowResult,
     TranscriptPayload,
 )
+from .email_templates import build_outreach_email
 from .scoring import normalize_project_type, parse_budget_usd, score_lead
 from .supabase_repo import SupabaseRepository
 from .supervity import SupervityClient
@@ -202,34 +203,41 @@ class JohnOrchestrator:
         trace["scoring"] = scoring.model_dump()
 
         lead_id = req.lead_id or str(uuid4())
-        lead: dict[str, Any] = {}
 
         existing = await self._safe_supabase(
             "get_lead_by_email", self.db.get_lead_by_email(payload.email)
         )
+
+        subflows: list[SubflowResult] = []
+        lead: dict[str, Any] = {}
+        crm_ok = False
+        crm_snapshot: dict[str, Any] = {}
+
+        # 1) CRM — local Supabase first (hackathon default; Agent A optional)
         if existing:
             lead_id = str(existing["id"])
-            lead = existing
+            company = (payload.company or payload.name or existing.get("company_name") or "Individual").strip()
             updated = await self._safe_supabase(
-                "update_lead",
+                "update_lead_reintake",
                 self.db.update_lead(
                     lead_id,
                     {
+                        "contact_name": (payload.name or "").strip() or existing.get("contact_name"),
+                        "company_name": company or "Individual",
+                        "phone": payload.phone or existing.get("phone"),
+                        "industry": normalize_project_type(payload.project_type),
                         "lead_score": scoring.score,
                         "notes": (existing.get("notes") or "")
-                        + f"\n[re-intake] {payload.budget or ''}",
+                        + f"\n[re-intake] name={payload.name} budget={payload.budget or ''}",
                     },
                 ),
+                required=True,
             )
-            if isinstance(updated, dict):
-                lead = updated
-
-        subflows: list[SubflowResult] = []
-        crm_snapshot = _lead_to_crm_snapshot(lead_id, lead, payload, scoring)
-        crm_ok = False
-
-        # 1) CRM — local Supabase first (hackathon default; Agent A optional)
-        if self.settings.crm_local_first:
+            lead = updated if isinstance(updated, dict) else existing
+            crm_snapshot = _lead_to_crm_snapshot(lead_id, lead, payload, scoring)
+            crm_ok = True
+            trace["crm"] = {"source": "re_intake_update", "lead_id": lead_id}
+        elif self.settings.crm_local_first:
             local_row = await self._safe_supabase(
                 "create_lead",
                 self.db.create_lead_from_payload(lead_id, payload, scoring, req.source),
@@ -322,15 +330,18 @@ class JohnOrchestrator:
                 **crm_snapshot,
                 "email": crm_snapshot.get("email"),
                 "full_name": crm_snapshot.get("full_name"),
+                "orchestrator_tier": scoring.tier,
             }
+            subject, body_html = build_outreach_email(snap, scoring)
+            trace["outreach_email"] = {"subject": subject, "body_preview": body_html[:200]}
             send_result = await self.supervity.execute_workflow(
                 "email",
                 build_email_inputs(
                     operation="send",
                     lead_id=lead_id,
                     snap=snap,
-                    subject="",
-                    body_html="",
+                    subject=subject,
+                    body_html=body_html,
                 ),
             )
             subflows.append(send_result)
@@ -699,10 +710,10 @@ def _lead_to_crm_snapshot(
 ) -> dict[str, Any]:
     return {
         "lead_id": lead_id,
-        "email": lead.get("contact_email") or (payload.email if payload else None),
-        "full_name": lead.get("contact_name") or (payload.name if payload else None),
-        "phone": lead.get("phone") or (payload.phone if payload else None),
-        "company_name": lead.get("company_name") or (payload.company if payload else "Individual"),
+        "email": (payload.email if payload else None) or lead.get("contact_email"),
+        "full_name": (payload.name if payload else None) or lead.get("contact_name"),
+        "phone": (payload.phone if payload else None) or lead.get("phone"),
+        "company_name": (payload.company if payload else None) or lead.get("company_name") or "Individual",
         "project_type": normalize_project_type(
             (payload.project_type if payload else None) or lead.get("industry")
         ),

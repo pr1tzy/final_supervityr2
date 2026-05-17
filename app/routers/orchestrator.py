@@ -5,6 +5,7 @@ import os
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from uuid import uuid4
@@ -22,6 +23,7 @@ from app.orchestrator.schemas import (
     OrchestratorEventResponse,
     TranscriptPayload,
 )
+from app.orchestrator.contract_files import contract_pdf_path
 from app.orchestrator.supabase_repo import SupabaseRepository
 from app.orchestrator.supervity import SupervityClient
 
@@ -34,6 +36,19 @@ def _check_webhook_secret(x_webhook_secret: str | None) -> None:
     secret = get_settings().webhook_secret
     if secret and x_webhook_secret != secret:
         raise HTTPException(status_code=401, detail="Invalid webhook secret")
+
+
+@router.get("/contracts/{lead_id}/agreement.pdf")
+async def download_contract_pdf(lead_id: str) -> FileResponse:
+    """Public PDF for legal attach + Agent E OCR demo (no auth)."""
+    path = contract_pdf_path(lead_id)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Contract PDF not generated yet — run Phase 2 Legal")
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=f"AceLink-Service-Agreement-{lead_id[:8]}.pdf",
+    )
 
 
 @router.get("/health")

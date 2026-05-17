@@ -8,5 +8,6 @@
   "/api/orchestrator/webhook/lead",
   "/api/orchestrator/phase/legal",
   "/api/orchestrator/phase/payment",
-  "/api/orchestrator/check"
+  "/api/orchestrator/check",
+  "/api/orchestrator/contracts/.*"
 ]

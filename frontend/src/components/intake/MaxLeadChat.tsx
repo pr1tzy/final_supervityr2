@@ -77,6 +77,7 @@ export function MaxLeadChat({ compact = false }: { compact?: boolean }) {
         </CardTitle>
         <CardDescription>
           Posts to John orchestrator ({process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}). Triggers Agent A + B pipeline.
+          Same email updates the existing lead (name and company refresh). Use a new email for a brand-new person.
           {johnOnline === false && (
             <span className='mt-1 block text-amber-700'>John offline — start SupervityR2 backend first.</span>
           )}

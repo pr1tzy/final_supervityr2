@@ -7,6 +7,8 @@ from typing import Any
 from uuid import uuid4
 
 from .agents_config import build_crm_inputs, build_legal_inputs, build_payment_inputs
+from .contract_files import contract_pdf_public_url, orchestrator_base_url, save_contract_pdf
+from .contract_pdf import markdown_to_pdf_bytes
 from .schemas import OrchestratorEventResponse, SubflowResult, TranscriptPayload
 from .scoring import parse_budget_usd
 from .supervity_parse import find_step_result, parse_operator_output
@@ -127,13 +129,53 @@ async def run_phase_legal(
     trace["legal_draft"] = draft_json
 
     contract_md = draft_json.get("contract_markdown") or "# AceLink Service Agreement\n\nTerms TBD."
+
+    pdf_url = ""
+    try:
+        company = str(snap.get("company_name") or "Client")
+        pdf_bytes = markdown_to_pdf_bytes(
+            contract_md,
+            title=f"AceLink Service Agreement - {company}",
+        )
+        save_contract_pdf(lead_id, pdf_bytes)
+        pdf_url = contract_pdf_public_url(lead_id, orchestrator_base_url())
+        trace["contract_pdf_url"] = pdf_url
+    except Exception as e:
+        log.exception("Contract PDF generation failed")
+        trace["contract_pdf_error"] = str(e)
+        # Minimal fallback PDF so phase 2 can still attach something
+        try:
+            pdf_bytes = markdown_to_pdf_bytes(
+                "# AceLink Service Agreement\n\nPlease sign and return this PDF.",
+                title="AceLink Service Agreement",
+            )
+            save_contract_pdf(lead_id, pdf_bytes)
+            pdf_url = contract_pdf_public_url(lead_id, orchestrator_base_url())
+            trace["contract_pdf_url"] = pdf_url
+        except Exception as e2:
+            trace["contract_pdf_fallback_error"] = str(e2)
+
+    client_name = str(snap.get("contact_name") or snap.get("full_name") or "there")
+    email_intro = (
+        f"<p>Hi {client_name},</p>"
+        f"<p>Please review the attached <strong>PDF Service Agreement</strong> for e-signature.</p>"
+        f"<p><strong>Next step:</strong> Sign the PDF and <strong>reply to this email</strong> "
+        f"with the signed PDF attached. We will verify via OCR and send your deposit link.</p>"
+    )
+    if pdf_url:
+        email_intro += (
+            f"<p>PDF download (same file attached): "
+            f"<a href=\"{pdf_url}\">{pdf_url}</a></p>"
+        )
+    email_intro += "<p>- AceLink Legal</p>"
+
     await orchestrator._safe_supabase(
         "log_contract_drafted",
         orchestrator.db.log_crm_activity(
             lead_id,
             "contract_drafted",
-            f"Contract {draft_json.get('contract_id', 'draft')} ready",
-            {"contract_id": draft_json.get("contract_id")},
+            f"Contract {draft_json.get('contract_id', 'draft')} ready — PDF at {pdf_url}",
+            {"contract_id": draft_json.get("contract_id"), "contract_pdf_url": pdf_url},
         ),
     )
 
@@ -143,7 +185,10 @@ async def run_phase_legal(
             task="send_contract_email",
             snap=snap,
             lead_id=lead_id,
-            contract_markdown=contract_md,
+            contract_markdown=contract_md if not pdf_url else "",
+            contract_pdf_url=pdf_url,
+            email_body_html=email_intro,
+            attach_as_pdf=bool(pdf_url),
         ),
     )
     subflows.append(legal_send)
@@ -159,8 +204,12 @@ async def run_phase_legal(
         orchestrator.db.log_crm_activity(
             lead_id,
             "contract_sent",
-            f"Legal email to {snap.get('email')} sent={sent}",
-            {"contract_status": send_json.get("contract_status", "sent")},
+            f"Legal email to {snap.get('email')} sent={sent} (PDF: {pdf_url})",
+            {
+                "contract_status": send_json.get("contract_status", "sent"),
+                "contract_pdf_url": pdf_url,
+                "attach_as_pdf": True,
+            },
         ),
     )
 
