@@ -1,0 +1,12 @@
+[
+  "/api/health",
+  "/api/ready",
+  "/api/files/.*",
+  "/api/auth/register",
+  "/api/orchestrator/health",
+  "/api/orchestrator/events",
+  "/api/orchestrator/webhook/lead",
+  "/api/orchestrator/phase/legal",
+  "/api/orchestrator/phase/payment",
+  "/api/orchestrator/check"
+]

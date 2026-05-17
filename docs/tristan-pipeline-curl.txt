@@ -1,0 +1,63 @@
+# Tristan Hancock — ONE lead through all phases
+# Email: tristanhancock@gmail.com (all agent emails go here)
+#
+# >>> USE WSL (Ubuntu), NOT Windows CMD <<<
+# Windows CMD curl breaks JSON when you use single quotes on -d → 500 error.
+# In WSL:
+#   cd /mnt/c/Users/vyrus/Hackathon/SupervityR2
+#   bash docs/tristan-pipeline-curl.sh
+#
+# Local backend (after restart): http://127.0.0.1:8001
+# If using ngrok instead, replace BASE below with your ngrok URL and add:
+#   -H "ngrok-skip-browser-warning: true"
+#
+# Run steps IN ORDER. After Step 1, copy "lead_id" from JSON into Steps 2–4.
+
+set BASE=http://127.0.0.1:8001
+set SECRET=igenuinelydontcareaboutthis
+
+# =============================================================================
+# STEP 0 — Health (no secret)
+# =============================================================================
+curl.exe -s "%BASE%/api/orchestrator/health"
+
+# =============================================================================
+# STEP 1 — Phase 1: Create lead + welcome email (Agent A + B)
+# → Copy "lead_id" from the response (UUID)
+# =============================================================================
+curl.exe -s -X POST "%BASE%/api/orchestrator/webhook/lead" ^
+  -H "Content-Type: application/json" ^
+  -H "X-Webhook-Secret: %SECRET%" ^
+  -d "{\"event\":\"lead_created\",\"source\":\"manual_curl_test\",\"lead_payload\":{\"name\":\"Tristan Hancock\",\"email\":\"tristanhancock@gmail.com\",\"phone\":\"9819861904\",\"company\":\"Ovelia Health\",\"project_type\":\"website\",\"budget\":\"around 5 lakhs\",\"timeline\":\"by October 2026\",\"availability\":[\"Thursday 7pm\"]}}"
+
+# PowerShell — save lead_id to a variable (run Step 1 line inside Invoke-RestMethod instead):
+# $r = Invoke-RestMethod -Method POST -Uri "$env:BASE/api/orchestrator/webhook/lead" -Headers @{"X-Webhook-Secret"=$env:SECRET} -ContentType "application/json" -Body '{"event":"lead_created","source":"manual_curl_test","lead_payload":{"name":"Tristan Hancock","email":"tristanhancock@gmail.com","phone":"9819861904","company":"Ovelia Health","project_type":"website","budget":"around 5 lakhs","timeline":"by October 2026"}}'
+# $LEAD_ID = $r.lead_id
+# $LEAD_ID
+
+# =============================================================================
+# STEP 2 — Phase 2: Transcript → contract email (Agent C)
+# Replace PASTE_LEAD_ID with UUID from Step 1
+# =============================================================================
+curl.exe -s -X POST "%BASE%/api/orchestrator/phase/legal" ^
+  -H "Content-Type: application/json" ^
+  -H "X-Webhook-Secret: %SECRET%" ^
+  -d "{\"lead_id\":\"PASTE_LEAD_ID\",\"transcript_payload\":{\"project_description\":\"Tristan wants a marketing website with blog, CMS, and contact form for Ovelia Health. Budget confirmed at 5 lakhs INR. Target launch October 2026. Deposit 30%% on signing.\",\"scoped_budget\":\"500000\",\"scoped_timeline\":\"October 2026\",\"meeting_transcript_summary\":\"Discussed scope, pages, timeline, and legal next steps. Client agreed to review contract this week.\"}}"
+
+# =============================================================================
+# STEP 3 — Phase 3: Payment link email (Agent D)
+# Same PASTE_LEAD_ID
+# =============================================================================
+curl.exe -s -X POST "%BASE%/api/orchestrator/phase/payment" ^
+  -H "Content-Type: application/json" ^
+  -H "X-Webhook-Secret: %SECRET%" ^
+  -d "{\"lead_id\":\"PASTE_LEAD_ID\",\"deposit_amount_usd\":150000}"
+
+# =============================================================================
+# STEP 4 — Phase 4: Monitor check (Agent E) — optional
+# Same PASTE_LEAD_ID
+# =============================================================================
+curl.exe -s -X POST "%BASE%/api/orchestrator/check" ^
+  -H "Content-Type: application/json" ^
+  -H "X-Webhook-Secret: %SECRET%" ^
+  -d "{\"action\":\"check\",\"lead_id\":\"PASTE_LEAD_ID\",\"client_email\":\"tristanhancock@gmail.com\",\"client_name\":\"Tristan Hancock\",\"silence_threshold_days\":4}"

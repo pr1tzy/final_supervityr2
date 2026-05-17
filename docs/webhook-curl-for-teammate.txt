@@ -1,0 +1,139 @@
+# AceLink — webhook for Max / chatbot teammate
+# Replace BASE with your ngrok URL, e.g. https://abc123.ngrok-free.app
+# Replace SECRET with ORCHESTRATOR_WEBHOOK_SECRET from host .env
+
+# =============================================================================
+# REQUIRED
+# =============================================================================
+# Header (always):
+#   X-Webhook-Secret: SECRET
+#
+# Body field (required):
+#   lead_payload.email  OR  lead_payload_json containing "email"
+#
+# =============================================================================
+# LEAD PAYLOAD FIELDS (inside lead_payload)
+# =============================================================================
+#
+# | Field          | Required | Example              | Notes
+# |----------------|----------|----------------------|----------------------------------
+# | email          | YES      | tristan@example.com  | Used for CRM + outreach
+# | name           | strongly | Tristan Singh        | Maps to contact_name
+# | phone          | no       | 9819861904           |
+# | company        | no       | Ovelia Health        | Default "Individual"
+# | project_type   | no       | website              | website|app|ai|other
+# | budget         | no       | around 5 lakhs       | Used for lead scoring
+# | timeline       | no       | by October 2026      |
+# | availability   | no       | ["Thursday 7pm"]     | string or array OK
+#
+# Extra keys are allowed (stored in notes / passed through).
+#
+# =============================================================================
+# WHAT HAPPENS AFTER POST
+# =============================================================================
+# 1. John scores the lead (hot/warm/cold)
+# 2. Agent A (CRM) creates row in Supabase
+# 3. If score allows outreach: Agent B drafts + sends welcome email
+#
+# =============================================================================
+# 1) HEALTH (no secret required)
+# =============================================================================
+
+curl -s "https://BASE/api/orchestrator/health"
+
+# =============================================================================
+# 2) MAIN — JSON (recommended for chatbot)
+# =============================================================================
+
+curl -X POST "https://BASE/api/orchestrator/webhook/lead" \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: SECRET" \
+  -d "{
+    \"event\": \"lead_created\",
+    \"source\": \"AceLink Website\",
+    \"lead_payload\": {
+      \"name\": \"Tristan Singh\",
+      \"email\": \"tristan@example.com\",
+      \"phone\": \"9819861904\",
+      \"company\": \"Ovelia Health\",
+      \"project_type\": \"website\",
+      \"budget\": \"around 5 lakhs\",
+      \"timeline\": \"by the end of October 2026\",
+      \"availability\": [\"Thursday 7pm\"]
+    }
+  }"
+
+# =============================================================================
+# 3) ALTERNATE — same endpoint via /events (JSON)
+# =============================================================================
+
+curl -X POST "https://BASE/api/orchestrator/events" \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: SECRET" \
+  -d "{
+    \"event\": \"lead_created\",
+    \"source\": \"AceLink Max Chatbot\",
+    \"lead_payload\": {
+      \"name\": \"Jane Doe\",
+      \"email\": \"jane@company.com\",
+      \"phone\": \"5551234567\",
+      \"company\": \"Acme Corp\",
+      \"project_type\": \"app\",
+      \"budget\": \"10 lakhs\",
+      \"timeline\": \"Q4 2026\"
+    }
+  }"
+
+# =============================================================================
+# 4) FORM (Supervity-style / form POST)
+# =============================================================================
+
+curl -X POST "https://BASE/api/orchestrator/webhook/lead" \
+  -H "X-Webhook-Secret: SECRET" \
+  -F "event=lead_created" \
+  -F "source=AceLink Website" \
+  -F "lead_payload_json={\"name\":\"Tristan Singh\",\"email\":\"tristan@example.com\",\"phone\":\"9819861904\",\"company\":\"Ovelia Health\",\"project_type\":\"website\",\"budget\":\"5 lakhs\",\"timeline\":\"October 2026\"}"
+
+# =============================================================================
+# 5) MINIMAL (only required field)
+# =============================================================================
+
+curl -X POST "https://BASE/api/orchestrator/webhook/lead" \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: SECRET" \
+  -d "{\"event\":\"lead_created\",\"lead_payload\":{\"email\":\"minimal@test.com\",\"name\":\"Minimal Lead\"}}"
+
+# =============================================================================
+# SUCCESS RESPONSE (example shape)
+# =============================================================================
+# {
+#   "success": true,
+#   "lead_id": "uuid-from-crm",
+#   "event_handled": "lead_created",
+#   "scoring": { "score": 72, "tier": "warm", "outreach_approved": true },
+#   "lead_status": "qualified",
+#   "message": "Lead ... processed — tier warm",
+#   "subflows": [ ... CRM + email agent results ... ]
+# }
+#
+# ERRORS:
+#   401 — wrong or missing X-Webhook-Secret
+#   503 — Supabase not configured on server
+#   success:false, workbench_reason:"missing_email" — no email in payload
+
+# =============================================================================
+# 6) MONITOR CHECK (Agent E — optional, after you have lead_id)
+# =============================================================================
+
+curl -X POST "https://BASE/api/orchestrator/check" \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: SECRET" \
+  -d "{
+    \"action\": \"check\",
+    \"lead_id\": \"PASTE-LEAD-UUID-HERE\",
+    \"client_email\": \"tristan@example.com\",
+    \"client_name\": \"Tristan Singh\",
+    \"silence_threshold_days\": 4,
+    \"signed_pdf_url\": \"\",
+    \"doc_type\": \"signed_contract\"
+  }"
